@@ -2,6 +2,7 @@ import random
 import numpy as np
 from collections import defaultdict
 
+
 class Policy:
     """
     Interface for a policy
@@ -15,9 +16,25 @@ class Policy:
     def update_policy(self, state, observation, action, reward, get_state = lambda x: 0):
         pass
 
+class DeepQPolicy(Policy):
+    """
+    QPolicy for continuous state space (use neural net to estimate q function)
+    """
+    def __init__(self, env):
+        from dql import DQLAgent
+        self.gamma = .9
+        #self.model = DQLAgent(env, self.gamma).model
+
+    
+    def get_action(self, state, observation, reward):
+        pass
+
+    def update_policy(self, state, observation, action, reward, get_state = lambda x: 0):
+        pass
+
 class QPolicy(Policy):
     """
-    Simplified implementation of q learning (find policy which maximizes total reward) 
+    Q learning for discrete state space (find policy which maximizes total reward) 
     """
     def __init__(self, actions):
         self.q_table = defaultdict(lambda: np.zeros(len(actions)))
