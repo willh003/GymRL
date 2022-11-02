@@ -2,10 +2,8 @@ import gym
 import random
 import numpy as np
 import policy
-
-"""
-TODO: train the model, implement a function to load/view its results
-"""
+import matplotlib.pyplot as plt
+import sys
 
 class Simulator:
     def __init__(self, task, policy):
@@ -41,30 +39,40 @@ class Simulator:
         env.close()
 
     def train_q(self, episodes):
-        self.model = self.learn_env(episodes).model
+        agent = self.learn_env(episodes)
+        self.model = agent.model
+        self.rewards = agent.tot_reward
+        print(self.rewards)
+        plt.plot(range(1, len(self.rewards) + 1), self.rewards)
+        plt.savefig("rewards")
+        
 
     def learn_env(self, episodes):
         from dql import DQLAgent # Slow import, not necessary unless using q learning
         env = gym.make(self.task, render_mode="human")
-        agent = DQLAgent(env, self.gamma)
+        max_steps = 400
+        agent = DQLAgent(env, self.gamma, max_steps)
         for e in range(1, episodes + 1):
             state, info = env.reset() # seed it here for testing
             state = np.reshape(state, [1, agent.osn]) # reshape env to inputs of DQL network
             t_reward = 0
-            max_steps = 1000
+            
             for step in range(max_steps):
+                # TODO: find a way to penalize taking more steps
                 action = agent.act(state)
                 next_state, reward, done, truncated, info = env.step(action)
                 next_state = np.reshape(next_state, [1, agent.osn])
-                agent.memorize(state, action, reward, next_state, done)
+                agent.memorize(state, action, reward, next_state, done, step)
                 state = next_state
                 t_reward += reward
+                #print(len(agent.memory))
                 if len(agent.memory) > agent.batch_size:
                     agent.replay_batch()
                 if done:
-                    print(f'Episode: {e} | Steps: {step} | Total reward: {t_reward} \
-                    | Epsilon: {agent.epsilon}')
+
                     break
+                                
+            print(f'Episode: {e} | Steps: {step} | Total reward: {t_reward} | Epsilon: {agent.epsilon}')
             agent.tot_reward.append(t_reward)
         
         return agent
@@ -76,7 +84,11 @@ class Simulator:
         return "not implemented"
 
 
-if __name__ == "__main__":
-    sim = Simulator("LunarLander-v2", policy.BasicPolicy)
 
-    sim.train_q(3)
+if __name__ == "__main__":
+    episodes = int(sys.argv[1])
+    save_path = sys.argv[2]
+    task = "LunarLander-v2"
+    sim = Simulator(task, policy.QPolicy)
+    sim.train_q(episodes)
+    sim.save_model(save_path)
