@@ -1,3 +1,4 @@
 test.py
-saved_model
-test_model
+models/*
+!models/rewards
+models/rewards/* 

@@ -16,7 +16,7 @@ class DQLAgent:
         self.epsilon = 1.0
         self.epsilon_decay = 0.998
         self.epsilon_min = 0.01
-        self.beta = .8 # Constant in c^x, which defines discount reward for larger steps
+        self.beta = 30 # Constant in c^x, which defines discount reward for larger steps
         self.tot_reward = []
         self.batch_size = 64
         self.max_steps = max_steps
@@ -68,10 +68,8 @@ class DQLAgent:
             self.epsilon *= self.epsilon_decay
     
     def step_discount(self, step):
-        if step < self.max_steps / 4:
-            return 1
-        if step > 3 * self.max_steps / 4:
-            return -1
-        return (.5-(1/self.max_steps)) ** step
-        
+        if step > self.max_steps / 4:
+            return -.05 * step
+        else:
+            return 0
 

@@ -4,6 +4,7 @@ import numpy as np
 import policy
 import matplotlib.pyplot as plt
 import sys
+import os
 
 class Simulator:
     def __init__(self, task, policy):
@@ -40,17 +41,13 @@ class Simulator:
 
     def train_q(self, episodes):
         agent = self.learn_env(episodes)
-        self.model = agent.model
         self.rewards = agent.tot_reward
-        print(self.rewards)
-        plt.plot(range(1, len(self.rewards) + 1), self.rewards)
-        plt.savefig("rewards")
-        
+        self.model = agent.model
 
     def learn_env(self, episodes):
         from dql import DQLAgent # Slow import, not necessary unless using q learning
         env = gym.make(self.task, render_mode="human")
-        max_steps = 400
+        max_steps = 350
         agent = DQLAgent(env, self.gamma, max_steps)
         for e in range(1, episodes + 1):
             state, info = env.reset() # seed it here for testing
@@ -78,7 +75,13 @@ class Simulator:
         return agent
 
     def save_model(self, model_name):
-        self.model.save(model_name)
+        rewards = self.rewards
+        plt.plot(range(1, len(rewards) + 1), rewards)
+        fig_path = os.path.join("models", "rewards", model_name)
+        plt.savefig(fig_path)
+        model_path = os.path.join("models", model_name)
+        self.model.save(model_path)
+
 
     def get_state(self, observation):
         return "not implemented"
@@ -87,8 +90,11 @@ class Simulator:
 
 if __name__ == "__main__":
     episodes = int(sys.argv[1])
-    save_path = sys.argv[2]
-    task = "LunarLander-v2"
+    save_name = sys.argv[2]
+    if len(sys.argv) > 3:
+        task = sys.argv[3]
+    else:
+        task = "LunarLander-v2"
     sim = Simulator(task, policy.QPolicy)
     sim.train_q(episodes)
-    sim.save_model(save_path)
+    sim.save_model(save_name)

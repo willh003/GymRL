@@ -2,6 +2,7 @@ from tensorflow.python.keras.models import load_model
 import gym
 import numpy as np
 import sys
+import os
 
 def run_model(task, model_name):
     model = load_model(model_name)
@@ -18,5 +19,5 @@ def run_model(task, model_name):
 
 if __name__ == "__main__":
     task = "LunarLander-v2"
-    model_path = sys.argv[1]
+    model_path = os.path.join("models", sys.argv[1])
     run_model(task, model_path)
