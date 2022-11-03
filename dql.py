@@ -54,9 +54,9 @@ class DQLAgent:
         reward = np.array([i[2] for i in batch])
         next_state = np.squeeze(np.array([i[3] for i in batch]))
         done = np.array([i[4] for i in batch])
-        step_discount = np.array([self.step_discount(i[5]) for i in batch])
+        step_discount = np.array([self.exponent_discount(i[5]) for i in batch])
 
-        q_val = reward + self.beta*step_discount + self.gamma * np.amax(self.model.predict_on_batch(next_state), \
+        q_val = reward + step_discount + self.gamma * np.amax(self.model.predict_on_batch(next_state), \
                                             axis=1) * (1 - done)
         target = self.model.predict_on_batch(state)
         idx = np.arange(self.batch_size)
@@ -68,8 +68,11 @@ class DQLAgent:
             self.epsilon *= self.epsilon_decay
     
     def step_discount(self, step):
-        if step > self.max_steps / 4:
+        if step > 3 * self.max_steps / 4:
             return -.05 * step
         else:
             return 0
+
+    def exponent_discount(self, step):
+        return 1 + (-1/(.987 ** step))
 
