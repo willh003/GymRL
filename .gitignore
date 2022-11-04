@@ -2,3 +2,4 @@ test.py
 models/*
 !models/rewards
 models/rewards/* 
+data/*

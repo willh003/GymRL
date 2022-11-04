@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 from gym.utils.play import play
-
+import csv
 
 from collections import deque
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -32,6 +32,7 @@ class Collector:
         self.action = random.randint(0, 3)
         self.reps = 600
         self.task = task
+        self.reset = False
     
     def collect(self):
 
@@ -84,38 +85,89 @@ class Collector:
 
         done, obs = True, None
         clock = pygame.time.Clock()
+        states = []
+        rewards = []
+        session_states = []
+        session_rewards = []
 
-        while game.running:
+        while game.running: 
+            # process pygame events
             if done:
-                done = False
-                obs = env.reset(seed=seed)
+                event = self.wait_for_events()
+                while event.key != pygame.K_r and event.key != pygame.K_s and event.key != pygame.K_q:
+                    event = self.wait_for_events()
+                
+                if event.key == pygame.K_r:
+                    done = False
+                    
+                    states.append(session_states)
+                    rewards.append(session_rewards)
+                                    # process pygame events
+                    env.reset(seed=seed)
+                    for event in pygame.event.get():
+                        game.process_event(event)
+                elif event.key == pygame.K_s:
+                    self.save_data(states, rewards)
+                    game.running = False
             else:
                 action = key_code_to_action.get(tuple(sorted(game.pressed_keys)), noop)
                 prev_obs = obs
                 obs, rew, terminated, truncated, info = env.step(action)
                 # GET ACTION AND STATE HERE
-                print(action)
-                print(rew)
-                done = terminated or truncated
+                session_states.append(obs)
+                session_rewards.append(rew)
+
+                done = terminated or truncated 
                 if callback is not None:
                     callback(prev_obs, obs, action, rew, terminated, truncated, info)
-            if obs is not None:
-                rendered = env.render()
-                if isinstance(rendered, List):
-                    rendered = rendered[-1]
-                assert rendered is not None and isinstance(rendered, np.ndarray)
-                self.display_arr(
-                    game.screen, rendered, transpose=transpose, video_size=game.video_size
-                )
+                if obs is not None:
+                    rendered = env.render()
+                    if isinstance(rendered, List):
+                        rendered = rendered[-1]
+                    assert rendered is not None and isinstance(rendered, np.ndarray)
+                    self.display_arr(
+                        game.screen, rendered, transpose=transpose, video_size=game.video_size
+                    )
 
-            # process pygame events
-            for event in pygame.event.get():
-                game.process_event(event)
+                # process pygame events
+                for event in pygame.event.get():
+                    game.process_event(event)
 
-            pygame.display.flip()
-            clock.tick(fps)
+                pygame.display.flip()
+                clock.tick(fps)
         pygame.quit()
-    
+
+    def wait_for_events(self):
+        event = pygame.event.wait()
+        while event.type != pygame.KEYDOWN:
+            event = pygame.event.wait()
+
+        return event
+
+    def save_data(self, states, rewards):
+        uniq_name = "trial10"
+        cur_path = os.path.join("data", uniq_name + ".csv")
+        # TODO: unique path currently not working (figure out the 1 digit problem)
+        while os.path.exists(cur_path):
+            print("hi")
+            last_dig = uniq_name[-2:-1]
+            new_dig = int(last_dig) + 1
+            uniq_name = uniq_name[:-2]
+            uniq_name += str(new_dig)
+            cur_path = os.path.join("data", uniq_name + ".csv")
+        
+        uniq_name += ".csv"
+
+        save_path = os.path.join("data", uniq_name)
+
+        with open(save_path, 'w') as file:
+            writer = csv.writer(file)
+            for session in states:
+                writer.writerow(session)
+
+        print(states)
+        print(rewards)
+
     def display_arr(self, 
         screen: Surface, arr: np.ndarray, video_size: Tuple[int, int], transpose: bool
     ):
@@ -198,6 +250,11 @@ class PlayableGame:
             event: The event to process
         """
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                self.reset = True
+            elif event.key == pygame.K_s:
+                self.save_data(self.states, self.rewards)
+                self.running = False
             if event.key in self.relevant_keys:
                 self.pressed_keys.append(event.key)
             elif event.key == pygame.K_ESCAPE:
