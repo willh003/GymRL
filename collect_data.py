@@ -23,6 +23,8 @@ from pygame import Surface
 from pygame.event import Event
 from pygame.locals import VIDEORESIZE
 
+import pandas as pd
+
 # Get action and state at line 103
 
 class Collector:
@@ -85,10 +87,10 @@ class Collector:
 
         done, obs = True, None
         clock = pygame.time.Clock()
-        states = []
-        rewards = []
-        session_states = []
-        session_rewards = []
+
+        state_frame = pd.DataFrame(columns = ['x', 'y', 'dx', 'dy', 'theta', 'dtheta', 'right_contact', 'left_contact'])
+        action_frame = pd.DataFrame(columns = ['vertical', 'lateral'])
+        tot_frame = pd.DataFrame(columns = ['x', 'y', 'dx', 'dy', 'theta', 'dtheta', 'right_contact', 'left_contact', 'vertical', 'lateral'])
 
         while game.running: 
             # process pygame events
@@ -100,22 +102,26 @@ class Collector:
                 if event.key == pygame.K_r:
                     done = False
                     
-                    states.append(session_states)
-                    rewards.append(session_rewards)
+                    tot_frame.append(pd.concat([state_frame, action_frame]), ignore_index= True)
                                     # process pygame events
+                    state_frame = state_frame[0:0]
+                    action_frame = action_frame[0:0]
                     env.reset(seed=seed)
                     for event in pygame.event.get():
                         game.process_event(event)
                 elif event.key == pygame.K_s:
-                    self.save_data(states, rewards)
+                    self.save_data(state_frame, action_frame, "trial")
                     game.running = False
             else:
                 action = key_code_to_action.get(tuple(sorted(game.pressed_keys)), noop)
                 prev_obs = obs
+
                 obs, rew, terminated, truncated, info = env.step(action)
-                # GET ACTION AND STATE HERE
-                session_states.append(obs)
-                session_rewards.append(rew)
+
+                # save action and state
+                action_frame.loc[len(action_frame.index)] = action
+                state_frame.loc[len(state_frame.index)] = obs.tolist()
+
 
                 done = terminated or truncated 
                 if callback is not None:
@@ -144,29 +150,27 @@ class Collector:
 
         return event
 
-    def save_data(self, states, rewards):
-        uniq_name = "trial10"
+    def save_data(self, states, actions, basename="trial"):
+        uniq_name = basename + "01"
         cur_path = os.path.join("data", uniq_name + ".csv")
         # TODO: unique path currently not working (figure out the 1 digit problem)
         while os.path.exists(cur_path):
-            print("hi")
-            last_dig = uniq_name[-2:-1]
+            last_dig = uniq_name[-2:]
+            print(last_dig)
             new_dig = int(last_dig) + 1
             uniq_name = uniq_name[:-2]
-            uniq_name += str(new_dig)
+            new_post = str(new_dig)
+            if len(new_post) < 2:
+                new_post = "0" + new_post
+            uniq_name += new_post
             cur_path = os.path.join("data", uniq_name + ".csv")
-        
-        uniq_name += ".csv"
 
-        save_path = os.path.join("data", uniq_name)
-
-        with open(save_path, 'w') as file:
-            writer = csv.writer(file)
-            for session in states:
-                writer.writerow(session)
-
-        print(states)
-        print(rewards)
+        out = pd.concat([states, actions], axis=1, join='inner')
+        out.to_csv(cur_path, encoding='utf-8', index=False)
+        # with open(cur_path, 'w') as file:
+        #     writer = csv.writer(file)
+        #     for session in states:
+        #         writer.writerow(session)
 
     def display_arr(self, 
         screen: Surface, arr: np.ndarray, video_size: Tuple[int, int], transpose: bool
@@ -253,7 +257,7 @@ class PlayableGame:
             if event.key == pygame.K_r:
                 self.reset = True
             elif event.key == pygame.K_s:
-                self.save_data(self.states, self.rewards)
+                self.save_data(self.states, self.actions)
                 self.running = False
             if event.key in self.relevant_keys:
                 self.pressed_keys.append(event.key)

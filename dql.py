@@ -55,9 +55,12 @@ class DQLAgent:
         next_state = np.squeeze(np.array([i[3] for i in batch]))
         done = np.array([i[4] for i in batch])
         step_discount = np.array([self.exponent_discount(i[5]) for i in batch])
-
-        q_val = reward + step_discount + self.gamma * np.amax(self.model.predict_on_batch(next_state), \
-                                            axis=1) * (1 - done)
+        
+        # INCLUDES DISCOUNT HERE
+        # q_val = reward + step_discount + self.gamma * np.amax(self.model.predict_on_batch(next_state), \
+        #                                     axis=1) * (1 - done)
+        q_val = reward + self.gamma * np.amax(self.model.predict_on_batch(next_state), \
+                                    axis=1) * (1 - done)
         target = self.model.predict_on_batch(state)
         idx = np.arange(self.batch_size)
         target[[idx], [action]] = q_val
