@@ -1,5 +1,5 @@
-from stable_baselines3.ppo import PPO
-
+from stable_baselines3 import PPO
+import numpy as np
 
 def get_expert():
     return PPO.load("./experts/LunarLander-v2/lunarlander_expert")

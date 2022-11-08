@@ -22,7 +22,7 @@ import pygame
 from pygame import Surface
 from pygame.event import Event
 from pygame.locals import VIDEORESIZE
-
+import load_expert_demo
 import pandas as pd
 
 # Get action and state at line 103
@@ -36,12 +36,42 @@ class Collector:
         self.task = task
         self.reset = False
     
+    def run_expert(self, runs):
+        expert = load_expert_demo.get_expert()
+
+        env = gym.make(
+            self.task, 
+            render_mode="rgb_array_list",
+            gravity = -4.0,
+            continuous = True
+            )
+
+        state_frame = pd.DataFrame(columns = ['x', 'y', 'dx', 'dy', 'theta', 'dtheta', 'right_contact', 'left_contact'])
+        action_frame = pd.DataFrame(columns = ['vertical', 'lateral'])
+        tot_frame = pd.DataFrame(columns = ['x', 'y', 'dx', 'dy', 'theta', 'dtheta', 'right_contact', 'left_contact', 'vertical', 'lateral'])
+
+        for i in range(runs):
+            obs = env.reset()
+            done = False
+            state_frame = state_frame[0:0]
+            action_frame = action_frame[0:0]
+            while not done:
+                action, _ = expert.predict(obs)
+                action_frame.loc[len(action_frame.index)] = action
+                state_frame.loc[len(state_frame.index)] = obs.tolist()
+                obs, reward, done, info = env.step(action)
+
+            tot_frame.append(pd.concat([state_frame, action_frame]), ignore_index= True)
+        
+        return tot_frame
+            
+
     def collect(self):
 
         mapping = {(pygame.K_LEFT, pygame.K_UP,): np.array([1, -1]), (pygame.K_RIGHT, pygame.K_UP,): np.array([1, 1]), 
                     (pygame.K_LEFT,): np.array([0, -1]), (pygame.K_UP,): np.array([1, 0]), (pygame.K_RIGHT,): np.array([0, 1])                     
         }
-        self.play(keys_to_action=mapping, seed=42, noop=np.array([0,0]))
+        return self.play(keys_to_action=mapping, seed=42, noop=np.array([0,0]))
     
     def play(self, 
             transpose: Optional[bool] = True,
@@ -110,7 +140,9 @@ class Collector:
                     for event in pygame.event.get():
                         game.process_event(event)
                 elif event.key == pygame.K_s:
-                    self.save_data(state_frame, action_frame, "trial")
+                    game.running = False
+                    return tot_frame
+                elif event.key == pygame.K_q:
                     game.running = False
             else:
                 action = key_code_to_action.get(tuple(sorted(game.pressed_keys)), noop)
@@ -150,13 +182,12 @@ class Collector:
 
         return event
 
-    def save_data(self, states, actions, basename="trial"):
+    def save_data(self, data, basename="trial"):
         uniq_name = basename + "01"
         cur_path = os.path.join("data", uniq_name + ".csv")
         # TODO: unique path currently not working (figure out the 1 digit problem)
         while os.path.exists(cur_path):
             last_dig = uniq_name[-2:]
-            print(last_dig)
             new_dig = int(last_dig) + 1
             uniq_name = uniq_name[:-2]
             new_post = str(new_dig)
@@ -165,12 +196,8 @@ class Collector:
             uniq_name += new_post
             cur_path = os.path.join("data", uniq_name + ".csv")
 
-        out = pd.concat([states, actions], axis=1, join='inner')
-        out.to_csv(cur_path, encoding='utf-8', index=False)
-        # with open(cur_path, 'w') as file:
-        #     writer = csv.writer(file)
-        #     for session in states:
-        #         writer.writerow(session)
+        data.to_csv(cur_path, encoding='utf-8', index=False)
+
 
     def display_arr(self, 
         screen: Surface, arr: np.ndarray, video_size: Tuple[int, int], transpose: bool
@@ -275,9 +302,19 @@ class PlayableGame:
 
 
 if __name__=="__main__":
-    if len(sys.argv) > 1:
-        task = sys.argv[1]
+    if len(sys.argv) > 2:
+        task = sys.argv[2]
     else:
         task = "LunarLander-v2"
     collector = Collector(task)
-    collector.collect()
+    if sys.argv[1] == "play":
+        data = collector.collect()
+    elif sys.argv[1] == "expert":
+        data = collector.run_expert(10)  # TODO: figure out bug with the expert (wrong version of gym I think)
+    else:
+        print("failed arg")
+
+    try:
+        collector.save_data(data)
+    except:
+        print("no data saved")
