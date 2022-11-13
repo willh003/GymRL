@@ -36,25 +36,25 @@ class ImitateAgent:
         
         self.model = model
 
-    def train(self):
+    def train(self, epochs):
         print(self.features.shape)
         print("------------------")
         print(self.labels.shape)
-        return self.model.fit(self.features, self.labels, epochs=25)
+        return self.model.fit(self.features, self.labels, epochs=epochs)
 
     def graph_loss(self, losses):
         plt.plot(range(1, len(losses) + 1), losses)
-        plt.show()
+        fig_path = os.path.join("models", "imitation", "loss-11-9-22")
+        plt.savefig(fig_path)
+        #plt.show()
 
 if __name__=="__main__":
     agent = ImitateAgent()
-    agent.load_data("trial01")
+    agent.load_data("trial05")
     agent.build_model()
-    history = agent.train()
+    history = agent.train(175)
     losses = history.history['loss']
-    arr= np.array( [0.054918479174375534,0.17031405866146088,0.07264575362205505,-0.15633781254291534,-0.29314637184143066,0.010642982088029385,0.0,0.0])
-    pred = agent.model.predict(arr.reshape(1,8))
-    print(pred, agent.model(arr.reshape(1,8)))
+    agent.model.save(os.path.join("models", "imitation", "model-11-9-22"))
     agent.graph_loss(losses)
 
 # should I just use two models instead (one for lateral, one for vertical)? Probably not, since they are probably not independent

@@ -3,3 +3,4 @@ models/*
 !models/rewards
 models/rewards/* 
 data/*
+experts/

@@ -12,6 +12,8 @@ def run_model(task, model_name):
 
     while not done:
         state = np.reshape(state, [1, env.observation_space.shape[0]])
+        print(state)
+        print(env.observation_space.shape)
         action = np.argmax(model.predict(state, verbose=0)[0])
         env.render()
         state, reward, done, truncated, info = env.step(action)
@@ -19,5 +21,5 @@ def run_model(task, model_name):
 
 if __name__ == "__main__":
     task = "LunarLander-v2"
-    model_path = os.path.join("models", sys.argv[1])
+    model_path = os.path.join("models", sys.argv[1], sys.argv[2])
     run_model(task, model_path)

@@ -42,7 +42,6 @@ class Collector:
         env = gym.make(
             self.task, 
             render_mode="rgb_array_list",
-            gravity = -4.0,
             continuous = True
             )
 
@@ -61,7 +60,7 @@ class Collector:
                 state_frame.loc[len(state_frame.index)] = obs.tolist()
                 obs, reward, done, info = env.step(action)
 
-            tot_frame.append(pd.concat([state_frame, action_frame]), ignore_index= True)
+            tot_frame.append(pd.concat([state_frame, action_frame], axis=1, join='inner'), ignore_index= True)
         
         return tot_frame
             
@@ -71,7 +70,7 @@ class Collector:
         mapping = {(pygame.K_LEFT, pygame.K_UP,): np.array([1, -1]), (pygame.K_RIGHT, pygame.K_UP,): np.array([1, 1]), 
                     (pygame.K_LEFT,): np.array([0, -1]), (pygame.K_UP,): np.array([1, 0]), (pygame.K_RIGHT,): np.array([0, 1])                     
         }
-        return self.play(keys_to_action=mapping, seed=42, noop=np.array([0,0]))
+        return self.play(keys_to_action=mapping, seed=None, noop=np.array([0,0]))
     
     def play(self, 
             transpose: Optional[bool] = True,
@@ -89,7 +88,7 @@ class Collector:
             continuous = True
             )
 
-        env.reset(seed=seed)
+        env.reset(seed=None)
 
         if keys_to_action is None:
             if hasattr(env, "get_keys_to_action"):
@@ -116,6 +115,7 @@ class Collector:
             fps = env.metadata.get("render_fps", 30)
 
         done, obs = True, None
+        fail = False 
         clock = pygame.time.Clock()
 
         state_frame = pd.DataFrame(columns = ['x', 'y', 'dx', 'dy', 'theta', 'dtheta', 'right_contact', 'left_contact'])
@@ -132,11 +132,13 @@ class Collector:
                 if event.key == pygame.K_r:
                     done = False
                     
-                    tot_frame.append(pd.concat([state_frame, action_frame]), ignore_index= True)
+                    if not fail:
+                        joined = pd.concat([state_frame, action_frame], axis=1, join='inner')
+                        tot_frame = tot_frame.append(joined, ignore_index = True)
                                     # process pygame events
-                    state_frame = state_frame[0:0]
-                    action_frame = action_frame[0:0]
-                    env.reset(seed=seed)
+                    print(tot_frame)
+                    fail = False
+                    env.reset(seed=None)
                     for event in pygame.event.get():
                         game.process_event(event)
                 elif event.key == pygame.K_s:
@@ -150,12 +152,15 @@ class Collector:
 
                 obs, rew, terminated, truncated, info = env.step(action)
 
-                # save action and state
+                                                # save action and state
                 action_frame.loc[len(action_frame.index)] = action
                 state_frame.loc[len(state_frame.index)] = obs.tolist()
 
 
                 done = terminated or truncated 
+                if rew < -90:
+                    fail = True
+
                 if callback is not None:
                     callback(prev_obs, obs, action, rew, terminated, truncated, info)
                 if obs is not None:
@@ -309,6 +314,7 @@ if __name__=="__main__":
     collector = Collector(task)
     if sys.argv[1] == "play":
         data = collector.collect()
+        print(data)
     elif sys.argv[1] == "expert":
         data = collector.run_expert(10)  # TODO: figure out bug with the expert (wrong version of gym I think)
     else:

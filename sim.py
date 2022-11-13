@@ -77,7 +77,7 @@ class Simulator:
     def save_model(self, model_name):
         rewards = self.rewards
         plt.plot(range(1, len(rewards) + 1), rewards)
-        fig_path = os.path.join("models", "rewards", model_name)
+        fig_path = os.path.join("models", "qlearn", "rewards", model_name)
         plt.savefig(fig_path)
         model_path = os.path.join("models", model_name)
         self.model.save(model_path)
